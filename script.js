@@ -1,13 +1,11 @@
 function add(a , b){
-    const aDecimal = String(a).includes('.') ? String(a).split('.')[1].length : 0;
-    const bDecimal = String(b).includes('.') ? String(b).split('.')[1].length : 0;
-
-    const scale = 10 ** Math.max(aDecimal, bDecimal);
+    const scale = decimalErrorFix(a , b);
     return (a * scale + b * scale) / scale;
 };
 
 function subtract(a , b){
-    return a - b;
+    const scale = decimalErrorFix(a , b);
+    return (a * scale - b * scale) / scale;
 };
 
 function multiply(a , b){
@@ -15,12 +13,52 @@ function multiply(a , b){
 };
 
 function divide(a , b){
-    if (a === 0 && b === 0){
+    if (b === 0){
         return 'Consequences';
     }
     // If length greater than 10, grab length, round until only 10 digits are left on screen
     return a / b;
 };
+
+function decimalErrorFix(a , b){
+    const aDecimal = String(a).includes('.') ? String(a).split('.')[1].length : 0;
+    const bDecimal = String(b).includes('.') ? String(b).split('.')[1].length : 0;
+
+    return 10 ** Math.max(aDecimal, bDecimal); 
+}
+
+function formatForDisplay(value){
+    const maxChars = 10;
+
+    if (!Number.isFinite(value)) return 'Error';
+
+    if (Object.is(value, -0)) value = 0;
+
+    // If value fits display
+    let s = String(value);
+    if (s.length <= maxChars) return s;
+
+    // Fit for decimals
+    const abs = Math.abs(value);
+    const intDigits = Math.trunc(abs).toString().length; // digits left of decimal
+    const sign = value < 0 ? 1 : 0;
+
+    const decimalsAllowed = Math.max(0, maxChars - (sign + intDigits + 1));
+    s = value.toFixed(decimalsAllowed);
+
+    // If Integer is too big
+    if (intDigits + sign > maxChars) {
+        return value.toExponential(Math.max(0, maxChars - (sign + 6))); 
+    }
+
+    if (s.length > maxChars) {
+        const prec = Math.max(0, maxChars - (sign + 5));
+        s = value.toExponential(prec);
+    }
+
+    return s.length <= maxChars ? s : s.slice(0, maxChars);
+
+}
 
 function operate(operator, a, b){
     console.log(operator, a, b);
@@ -84,6 +122,7 @@ btns.forEach(btn =>{
             return 'Cleared';
         }
 
+        // Decimal handling
         if (btn.classList.contains('decimal')){
             if (display.textContent.includes('.')){
                 return 'Decimal disabled';
@@ -125,7 +164,7 @@ btns.forEach(btn =>{
             }
 
             if (typeof nextNumber === 'number'){
-                display.textContent = nextNumber;
+                display.textContent = formatForDisplay(nextNumber);
                 currentNumber = nextNumber;
                 previousOperation === null;
             } else {
@@ -149,7 +188,6 @@ btns.forEach(btn =>{
 });
 
 // If two operations are clicked back to back, a bug occurs. (contributes to equal sign bug)
-// Doesn't handle long decimals yet
-// Does not handle very large numbers that are added / multiplied yet (they break through display)
+// Does not handle negative number input
 // No backspace button
 // No keyboard support
