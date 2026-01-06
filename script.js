@@ -1,3 +1,5 @@
+const operationList = '+-x/=';
+
 function add(a , b){
     const scale = decimalErrorFix(a , b);
     return (a * scale + b * scale) / scale;
@@ -16,7 +18,6 @@ function divide(a , b){
     if (b === 0){
         return 'Consequences';
     }
-    // If length greater than 10, grab length, round until only 10 digits are left on screen
     return a / b;
 };
 
@@ -61,9 +62,8 @@ function formatForDisplay(value){
 }
 
 function operate(operator, a, b){
-    console.log(operator, a, b);
+
     if (!Number.isFinite(a) || !Number.isFinite(b)){
-        console.log('No previous Number');
         return 'No previous number';
     };
     
@@ -82,7 +82,7 @@ function operate(operator, a, b){
 
 function numberLimit(btns){ // Limitation for the display of calculator
     btns.forEach(numberBtn =>{
-        if (!numberBtn.classList.contains('decimal') && numberBtn.classList.contains('number')){
+        if (numberBtn.classList.contains('decimal') || numberBtn.classList.contains('number')){
             numberBtn.style.backgroundColor = 'black';
             numberBtn.style.color = 'white';
         }
@@ -91,7 +91,7 @@ function numberLimit(btns){ // Limitation for the display of calculator
 
 function resetNumberLimit(btns){ // Resets display limit of calculator
     btns.forEach(numberBtn =>{
-        if (!numberBtn.classList.contains('decimal') && numberBtn.classList.contains('number')){
+        if (numberBtn.classList.contains('decimal') || numberBtn.classList.contains('number')){
             numberBtn.style.backgroundColor = '';
             numberBtn.style.color = '';
         }
@@ -100,92 +100,170 @@ function resetNumberLimit(btns){ // Resets display limit of calculator
 
 const btns = document.querySelectorAll('button');
 const display = document.querySelector("#display");
-let previousBtnText = 'start';
-let previousNumber = null;
-let currentNumber = '';
-let nextNumber = null;
+let currentNumber = null;
 let previousOperation = null;
+let lastOperation = null;
+let lastOperand = null;
+let awaitingNextNumber = false;
 
-btns.forEach(btn =>{
-    btn.addEventListener('click', (checkButton) => {
+btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+    const t = btn.textContent;
 
-        // Clear button functionality
-        if (btn.textContent === 'AC'){
-            display.textContent = '0';
-            display.style.fontSize = '';
+    if (t === 'AC') { // Clear button
+        display.textContent = '0';
+        display.style.fontSize = '';
+        resetNumberLimit(btns);
+
+        currentNumber = null;
+        previousOperation = null;
+        lastOperation = null;
+        lastOperand = null;
+        awaitingNextNumber = false;
+
+        return;
+    }
+
+    if (btn.classList.contains('number')) { // Procedure for numbers
+        if (previousOperation === null && lastOperation !== null && awaitingNextNumber) {
+        currentNumber = null;
+        lastOperation = null;
+        lastOperand = null;
+        }
+
+        if (awaitingNextNumber || display.textContent === '0') { // handle the first input
+        display.textContent = String(t);
+        } else {
+        if (display.textContent.length === 10) {
+            numberLimit(btns);
+            return;
+        }
+        display.textContent += String(t);
+        }
+
+        resetNumberLimit(btns);
+        awaitingNextNumber = false;
+        return;
+    }
+
+    if (btn.classList.contains('decimal')) { // Procedure to handle decimals
+        if (previousOperation === null && lastOperation !== null && awaitingNextNumber) {
+        currentNumber = null;
+        lastOperation = null;
+        lastOperand = null;
+        }
+
+        if (display.textContent.includes('.')) return;
+
+        if (awaitingNextNumber) { // handle the first input
+        display.textContent = '0.';
+        } else {
+        if (display.textContent.length === 10) {
+            numberLimit(btns);
+            return;
+        }
+        display.textContent += '.';
+        }
+
+        awaitingNextNumber = false;
+        return;
+    }
+
+    if (!btn.classList.contains('operation')) return;
+
+    if (t !== '=') { // Procedure for operations except for equals
+        if (previousOperation !== null && awaitingNextNumber) {
+            previousOperation = t;
+            return;
+        }
+
+        if (currentNumber === null) {
+            currentNumber = Number(display.textContent);
+            previousOperation = t;
+            awaitingNextNumber = true;
             resetNumberLimit(btns);
-            previousBtnText = 'start';
-            previousNumber = null;
-            previousOperation = null;
-            currentNumber = '';
-            nextNumber = null;
-            return 'Cleared';
+            return;
         }
 
-        // Decimal handling
-        if (btn.classList.contains('decimal')){
-            if (display.textContent.includes('.')){
-                return 'Decimal disabled';
-            } else {
-                display.textContent += String(btn.textContent);
-            }
-        }
+        if (previousOperation !== null && !awaitingNextNumber) { // Handling result
+            const b = Number(display.textContent);
+            const r = operate(previousOperation, currentNumber, b);
 
-        // Procedure for if button was a number
-        if (btn.classList.contains('number') && previousBtnText != 'start'){
-            if (display.textContent.length === 10){ // Display limit reached
-                numberLimit(btns);
-                console.log('limit');
-                return 'limit';
-            }
-            display.textContent += String(btn.textContent);
-        }
-        
-        // Procedure for the first button
-        if (previousBtnText === 'start' && !btn.classList.contains('operation')){
-            display.textContent = String(btn.textContent);
-            previousBtnText = String(btn.textContent);
-        }
-
-        // Procedure for operation buttons
-        if (btn.classList.contains('operation')){
-            previousNumber = Number(display.textContent);
-
-            if (previousOperation === null){
-                previousOperation = btn.textContent;
-            }
-
-            nextNumber = operate(previousOperation, currentNumber, previousNumber);
-
-            if (nextNumber === 'Consequences'){ // Divide 0 by 0
+            if (r === 'Consequences') {
                 display.textContent = 'Consequences';
                 display.style.fontSize = '28px';
-                return 'Consequences';
+                return;
             }
 
-            if (typeof nextNumber === 'number'){
-                display.textContent = formatForDisplay(nextNumber);
-                currentNumber = nextNumber;
-                previousOperation === null;
-            } else {
-                currentNumber = Number(display.textContent);
-            }
-
-            resetNumberLimit(btns);
-            previousBtnText = 'start';
+            display.style.fontSize = '';
+            display.textContent = formatForDisplay(r);
+            currentNumber = r;
+            lastOperation = previousOperation;
+            lastOperand = b;
         }
 
+        previousOperation = t;
+        awaitingNextNumber = true;
+        resetNumberLimit(btns);
+        return;
+    }
+
+    if (previousOperation !== null) {
+        const b = awaitingNextNumber ? (lastOperand ?? currentNumber) : Number(display.textContent);
+        const r = operate(previousOperation, currentNumber, b);
+
+        if (r === 'Consequences') { // Handling result
+        display.textContent = 'Consequences';
+        display.style.fontSize = '28px';
+        return;
+        }
+
+        display.style.fontSize = '';
+        display.textContent = formatForDisplay(r);
+
+        currentNumber = r;
+        lastOperation = previousOperation;
+        lastOperand = b;
+        previousOperation = null;
+
+        awaitingNextNumber = true;
+        resetNumberLimit(btns);
+        return;
+    }
+
+    if (lastOperation !== null && typeof currentNumber === 'number' && typeof lastOperand === 'number') {
+        const r = operate(lastOperation, currentNumber, lastOperand);
+
+        if (r === 'Consequences') {
+        display.textContent = 'Consequences';
+        display.style.fontSize = '28px';
+        return;
+        }
+
+        display.style.fontSize = '';
+        display.textContent = formatForDisplay(r);
+        currentNumber = r;
+
+        awaitingNextNumber = true;
+        return;
+    }
+
+    currentNumber = Number(display.textContent);
+    awaitingNextNumber = true;
     });
 
-    // Button responsiveness
-    btn.addEventListener('mousedown', (responsiveClick) => {
-        btn.style.backgroundColor = '#177fd4';
-        btn.style.borderRadius = '4px';
+    btn.addEventListener('mousedown', () => {
+    btn.style.backgroundColor = '#177fd4';
+    btn.style.borderRadius = '4px';
     });
-    btn.addEventListener('mouseup', (responsiveRelease) => {
-        btn.style.backgroundColor = '';
+    btn.addEventListener('mouseup', () => {
+    btn.style.backgroundColor = '';
     });
 });
+
+
+
+
 
 // If two operations are clicked back to back, a bug occurs. (contributes to equal sign bug)
 // Does not handle negative number input
