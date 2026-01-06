@@ -11,3 +11,5 @@ Note:
 3. It does NOT support keyboard inputs.
 
 4. It does NOT support negative number inputs.
+
+These were extra credit / not specifically required, but should be noted.
